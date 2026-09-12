@@ -12,7 +12,7 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@repo/typescript-config": "*",
+    "@meet/typescript-config": "workspace:*",
     "typescript": "^5"
   }
 }
