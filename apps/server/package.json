@@ -1,8 +1,11 @@
 {
-  "name": "server",
+  "name": "@meet/server",
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "dependencies": {
+    "@meet/shared": "workspace:*"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
