@@ -5,6 +5,11 @@
 export const MAX_PARTICIPANTS = 10;
 
 /**
+ * Default WebSocket signaling endpoint URL.
+ */
+export const DEFAULT_WS_URL = "ws://localhost:3001/ws";
+
+/**
  * A meeting code in the format abc-defg-hij.
  * Generated server-side using nanoid.
  */
@@ -36,7 +41,7 @@ export interface AckMessage {
 }
 
 /**
- * Generic socket message type.
+ * Discriminated union of all WebSocket messages.
+ * Extended as signaling features are added (T-07).
  */
-export type SocketMessage =
-  PingMessage | AckMessage | { type: string; [key: string]: unknown };
+export type SocketMessage = PingMessage | AckMessage;

@@ -1,6 +1,10 @@
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
-import { MAX_PARTICIPANTS } from "@meet/shared";
+import {
+  type AckMessage,
+  DEFAULT_WS_URL,
+  MAX_PARTICIPANTS,
+} from "@meet/shared";
 import Fastify, { type FastifyInstance } from "fastify";
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -35,25 +39,19 @@ export async function buildApp(): Promise<FastifyInstance> {
           typeof rawMessage === "string"
             ? rawMessage
             : rawMessage.toString("utf8");
-        const parsed = JSON.parse(text);
+        const parsed: unknown = JSON.parse(text);
 
-        if (parsed && typeof parsed === "object" && "type" in parsed) {
-          if (parsed.type === "ping") {
-            socket.send(
-              JSON.stringify({
-                type: "ack",
-                timestamp: Date.now(),
-              })
-            );
-          } else {
-            socket.send(
-              JSON.stringify({
-                type: "ack",
-                echo: parsed,
-                timestamp: Date.now(),
-              })
-            );
-          }
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          "type" in parsed &&
+          (parsed as { type: unknown }).type === "ping"
+        ) {
+          const ack: AckMessage = {
+            type: "ack",
+            timestamp: Date.now(),
+          };
+          socket.send(JSON.stringify(ack));
         }
       } catch (err) {
         app.log.error(err, "Failed to parse incoming WebSocket message");

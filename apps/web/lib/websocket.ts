@@ -1,19 +1,16 @@
-import type { SocketMessage } from "@meet/shared";
+import { DEFAULT_WS_URL, type SocketMessage } from "@meet/shared";
 
-type MessageHandler<T extends SocketMessage = SocketMessage> = (
-  message: T
-) => void;
+type GenericHandler = (message: SocketMessage) => void;
 
 export class WebSocketClient {
   private socket: WebSocket | null = null;
   private url: string;
-  private messageListeners: Set<MessageHandler<any>> = new Set();
+  private messageListeners: Set<GenericHandler> = new Set();
   private openListeners: Set<() => void> = new Set();
   private closeListeners: Set<() => void> = new Set();
 
   constructor(url?: string) {
-    this.url =
-      url || process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:3001/ws";
+    this.url = url || process.env.NEXT_PUBLIC_WS_URL || DEFAULT_WS_URL;
   }
 
   /**
@@ -42,10 +39,16 @@ export class WebSocketClient {
       try {
         const text =
           typeof event.data === "string" ? event.data : event.data.toString();
-        const parsed: SocketMessage = JSON.parse(text);
+        const parsed: unknown = JSON.parse(text);
 
-        if (parsed && typeof parsed === "object" && "type" in parsed) {
-          this.messageListeners.forEach((listener) => listener(parsed));
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          "type" in parsed &&
+          typeof (parsed as { type: unknown }).type === "string"
+        ) {
+          const message = parsed as SocketMessage;
+          this.messageListeners.forEach((listener) => listener(message));
         }
       } catch (err) {
         console.error("Failed to parse incoming WebSocket message:", err);
@@ -86,13 +89,41 @@ export class WebSocketClient {
 
   /**
    * Registers a typed message handler and returns an unsubscribe cleanup function.
+   * If a messageType filter is provided, only messages matching that type trigger the callback.
    */
   public onMessage<T extends SocketMessage = SocketMessage>(
-    handler: (message: T) => void
+    handler: (message: T) => void,
+    messageType?: T["type"]
   ): () => void {
-    this.messageListeners.add(handler as MessageHandler<any>);
+    const wrapped: GenericHandler = (message: SocketMessage) => {
+      if (!messageType || message.type === messageType) {
+        handler(message as T);
+      }
+    };
+
+    this.messageListeners.add(wrapped);
     return () => {
-      this.messageListeners.delete(handler as MessageHandler<any>);
+      this.messageListeners.delete(wrapped);
+    };
+  }
+
+  /**
+   * Registers an onOpen connection listener.
+   */
+  public onOpen(handler: () => void): () => void {
+    this.openListeners.add(handler);
+    return () => {
+      this.openListeners.delete(handler);
+    };
+  }
+
+  /**
+   * Registers an onClose disconnection listener.
+   */
+  public onClose(handler: () => void): () => void {
+    this.closeListeners.add(handler);
+    return () => {
+      this.closeListeners.delete(handler);
     };
   }
 
