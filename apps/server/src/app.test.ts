@@ -19,4 +19,37 @@ describe("Fastify server", () => {
 
     await app.close();
   });
+
+  it("WebSocket /ws accepts connection and echoes ack on ping", async () => {
+    const app = await buildApp();
+    await app.listen({ port: 0 });
+    const address = app.server.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+
+    const ws = new WebSocket(`ws://localhost:${port}/ws`);
+
+    const ackPromise = new Promise<{ type: string }>((resolve, reject) => {
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data.toString());
+          resolve(data);
+        } catch (e) {
+          reject(e);
+        }
+      };
+      ws.onerror = (e) => reject(e);
+    });
+
+    await new Promise<void>((resolve) => {
+      ws.onopen = () => resolve();
+    });
+
+    ws.send(JSON.stringify({ type: "ping" }));
+    const ack = await ackPromise;
+
+    expect(ack.type).toBe("ack");
+
+    ws.close();
+    await app.close();
+  });
 });

@@ -18,3 +18,25 @@ export interface Participant {
   peerId: string;
   displayName: string;
 }
+
+/**
+ * Base ping message sent from client to server to verify connection.
+ */
+export interface PingMessage {
+  type: "ping";
+  timestamp?: number;
+}
+
+/**
+ * Base acknowledgment message sent from server to client.
+ */
+export interface AckMessage {
+  type: "ack";
+  timestamp?: number;
+}
+
+/**
+ * Generic socket message type.
+ */
+export type SocketMessage =
+  PingMessage | AckMessage | { type: string; [key: string]: unknown };
