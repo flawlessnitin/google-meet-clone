@@ -1,10 +1,6 @@
 import cors from "@fastify/cors";
 import websocket from "@fastify/websocket";
-import {
-  type AckMessage,
-  DEFAULT_WS_URL,
-  MAX_PARTICIPANTS,
-} from "@meet/shared";
+import { type AckMessage, MAX_PARTICIPANTS } from "@meet/shared";
 import Fastify, { type FastifyInstance } from "fastify";
 
 export async function buildApp(): Promise<FastifyInstance> {

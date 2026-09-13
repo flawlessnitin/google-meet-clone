@@ -65,10 +65,14 @@ export class WebSocketClient {
   }
 
   /**
-   * Disconnects the active socket connection.
+   * Disconnects the active socket connection and cleans up socket handlers.
    */
   public disconnect(): void {
     if (this.socket) {
+      this.socket.onopen = null;
+      this.socket.onmessage = null;
+      this.socket.onclose = null;
+      this.socket.onerror = null;
       this.socket.close();
       this.socket = null;
     }
