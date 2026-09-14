@@ -1,0 +1,8 @@
+#!/bin/sh
+current_branch=$(git branch --show-current)
+
+if [ "$current_branch" = "main" ]; then
+  echo "❌ BLOCKED: Direct push to 'main' is forbidden by guardrails." >&2
+  echo "👉 Please create a feature branch (e.g. feat/T-04-websocket-client) and push there." >&2
+  exit 1
+fi
