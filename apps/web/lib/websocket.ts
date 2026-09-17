@@ -11,8 +11,8 @@ export interface WebSocketClientOptions {
   maxReconnectAttempts?: number;
 }
 
-const DEFAULT_RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];
-const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
+export const DEFAULT_RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000];
+export const DEFAULT_MAX_RECONNECT_ATTEMPTS = 5;
 
 export class WebSocketClient {
   private socket: WebSocket | null = null;
@@ -53,7 +53,7 @@ export class WebSocketClient {
   }
 
   /**
-   * Number of reconnection attempts made so far.
+   * Number of reconnection attempts made so far in current backoff cycle.
    */
   public get reconnectAttempts(): number {
     return this._reconnectAttempts;
@@ -100,6 +100,7 @@ export class WebSocketClient {
     }
 
     this.isExplicitDisconnect = false;
+    this.clearReconnectTimer();
 
     if (
       this.socket &&
@@ -144,10 +145,13 @@ export class WebSocketClient {
       }
     };
 
-    this.socket.onclose = () => {
+    this.socket.onclose = (event: CloseEvent) => {
       this.closeListeners.forEach((listener) => listener());
-      if (!this.isExplicitDisconnect) {
+      // Clean, intentional close by server or explicit disconnect does not trigger reconnect
+      if (!this.isExplicitDisconnect && event.code !== 1000) {
         this.handleConnectionDrop();
+      } else {
+        this.setState("disconnected");
       }
     };
 
@@ -176,6 +180,7 @@ export class WebSocketClient {
     } else {
       // Exceeded max attempts, stop retrying
       this.clearReconnectTimer();
+      this._reconnectAttempts = 0;
       this.setState("disconnected");
     }
   }

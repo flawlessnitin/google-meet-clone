@@ -1,10 +1,22 @@
 import { describe, expect, it } from "bun:test";
-import { WebSocketClient, wsClient, type ConnectionState } from "./websocket";
+import type { ServerWebSocket } from "bun";
+import {
+  DEFAULT_MAX_RECONNECT_ATTEMPTS,
+  DEFAULT_RECONNECT_DELAYS,
+  WebSocketClient,
+  wsClient,
+  type ConnectionState,
+} from "./websocket";
 
 describe("WebSocketClient", () => {
   it("exports wsClient singleton as an instance of WebSocketClient", () => {
     expect(wsClient).toBeDefined();
     expect(wsClient).toBeInstanceOf(WebSocketClient);
+  });
+
+  it("configures default backoff delays and max retry attempts", () => {
+    expect(DEFAULT_RECONNECT_DELAYS).toEqual([1000, 2000, 4000, 8000, 16000]);
+    expect(DEFAULT_MAX_RECONNECT_ATTEMPTS).toBe(5);
   });
 
   it("registers onMessage handler and unsubscribes cleanly", () => {
@@ -71,7 +83,7 @@ describe("WebSocketClient", () => {
 
   describe("Auto-reconnect with exponential backoff (T-05)", () => {
     it("transitions state: disconnected -> connected on open, connected -> reconnecting on unexpected close", async () => {
-      let activeSocket: any = null;
+      let activeSocket: ServerWebSocket<unknown> | null = null;
       const server = Bun.serve({
         port: 0,
         fetch(req, server) {
@@ -112,8 +124,13 @@ describe("WebSocketClient", () => {
 
       expect(client.state).toBe("connected");
 
-      // Server drops connection abruptly
-      activeSocket.close();
+      // Server drops connection abruptly with non-1000 code
+      if (activeSocket) {
+        (activeSocket as ServerWebSocket<unknown>).close(
+          1006,
+          "Abnormal closure"
+        );
+      }
 
       await new Promise<void>((resolve) => {
         const check = setInterval(() => {
@@ -162,8 +179,8 @@ describe("WebSocketClient", () => {
       await new Promise<void>((resolve) => {
         const check = setInterval(() => {
           if (
-            client.reconnectAttempts >= 2 &&
-            client.state === "disconnected"
+            client.state === "disconnected" &&
+            states.includes("reconnecting")
           ) {
             clearInterval(check);
             resolve();
@@ -172,12 +189,12 @@ describe("WebSocketClient", () => {
       });
 
       expect(client.state).toBe("disconnected");
-      expect(client.reconnectAttempts).toBe(2);
+      expect(client.reconnectAttempts).toBe(0); // Reset for future calls
     });
 
     it("automatically reconnects when server restarts", async () => {
       let serverPort = 0;
-      let server: any = null;
+      let server: ReturnType<typeof Bun.serve> | null = null;
 
       const startServer = () => {
         return Bun.serve({
@@ -193,7 +210,7 @@ describe("WebSocketClient", () => {
       };
 
       server = startServer();
-      serverPort = server.port;
+      serverPort = server.port ?? 0;
 
       const client = new WebSocketClient({
         url: `ws://localhost:${serverPort}/ws`,
@@ -214,7 +231,7 @@ describe("WebSocketClient", () => {
 
       expect(client.state).toBe("connected");
 
-      // Stop server
+      // Stop server abruptly closing connections
       server.stop(true);
 
       await new Promise<void>((resolve) => {
@@ -232,7 +249,7 @@ describe("WebSocketClient", () => {
       server = Bun.serve({
         port: serverPort,
         fetch(req, s) {
-          if (s.upgrade(req)) return;
+          if (s.upgrade(req, { data: undefined })) return;
           return new Response("Upgrade failed", { status: 500 });
         },
         websocket: {
@@ -253,7 +270,7 @@ describe("WebSocketClient", () => {
       expect(client.state).toBe("connected");
 
       client.disconnect();
-      server.stop(true);
+      server.stop();
     });
   });
 });
