@@ -1,14 +1,21 @@
 import "dotenv/config";
 import { buildApp } from "./app";
 
-const PORT = Number(process.env.PORT) || 3001;
-const HOST = process.env.HOST || "0.0.0.0";
+interface ServerConfig {
+  port: number;
+  host: string;
+}
 
-async function main() {
+const config: ServerConfig = {
+  port: Number(process.env.PORT) || 3001,
+  host: process.env.HOST || "0.0.0.0",
+};
+
+async function main(): Promise<void> {
   const app = await buildApp();
 
   try {
-    const address = await app.listen({ port: PORT, host: HOST });
+    const address = await app.listen(config);
     app.log.info(`Fastify server listening on ${address}`);
   } catch (err) {
     app.log.error(err);
