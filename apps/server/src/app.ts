@@ -5,7 +5,19 @@ import Fastify, { type FastifyInstance } from "fastify";
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: process.env.NODE_ENV === "test" ? false : true,
+    logger:
+      process.env.NODE_ENV === "test"
+        ? false
+        : {
+            transport: {
+              target: "pino-pretty",
+              options: {
+                colorize: true,
+                translateTime: "HH:MM:ss",
+                // ignore: "pid,hostname",
+              },
+            },
+          },
   });
 
   // CORS setup
